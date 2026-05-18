@@ -1,0 +1,31 @@
+From the level00 account, the goal was to find the password for the flag00 account.
+
+I started by searching for files owned by the flag00 user:
+
+find / -user flag00 2>/dev/null
+
+Interesting results:
+
+/usr/sbin/john
+/rofs/usr/sbin/john
+
+The /usr/sbin/john file contained:
+
+cdiiddwpgswtgt
+
+This string was not the password directly. It was encrypted with a Caesar/ROT cipher.
+By testing the shifts with https://cryptii.com/pipes/caesar-cipher/, shift 15 gives:
+
+nottoohardhere
+
+I used this password to log into the flag00 account:
+
+su flag00
+
+Then I ran:
+
+getflag
+
+Token obtained to access the next level:
+
+x24ti5gi3x0ol2eh4esiuxias
