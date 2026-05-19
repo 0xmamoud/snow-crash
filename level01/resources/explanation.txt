@@ -1,0 +1,47 @@
+From the level01 account, the goal was to find the password for the flag01 account.
+
+Searching for files owned by flag01 did not return anything useful:
+
+find / -user flag01 2>/dev/null
+
+I then inspected the local user database:
+
+cat /etc/passwd
+
+The interesting line was:
+
+flag01:42hDRfypTqqnw:3001:3001::/home/flag/flag01:/bin/bash
+
+On a normal modern Linux system, the password field in /etc/passwd should contain only "x".
+This means the real password hash is stored in /etc/shadow, which is not readable by regular users.
+
+Here, the password field contains this hash directly:
+
+42hDRfypTqqnw
+
+This is an old Unix DES crypt password hash. Since /etc/passwd is readable by all users,
+the hash can be copied and cracked offline.
+
+I copied the full passwd line to a local file on my host machine:
+
+flag01:42hDRfypTqqnw:3001:3001::/home/flag/flag01:/bin/bash
+
+Then I used John the Ripper to crack it:
+
+john passwd.txt
+
+John found the password:
+
+abcdefg
+
+I used this password to log into the flag01 account:
+
+su flag01
+
+Then I ran:
+
+getflag
+
+Token obtained to access the next level:
+
+f2av5il02puano7naaf6adaaf
