@@ -89,85 +89,6 @@ Fichiers modifies recemment :
 find / -mtime -1 2>/dev/null
 ```
 
-## Comprendre `-perm -4000`
-
-`find / -perm -4000` signifie : chercher les fichiers dont le bit de permission `4000` est active.
-
-`4000` correspond au bit SUID, aussi appele set-user-ID.
-Quand un binaire a le bit SUID, il peut s'executer avec les droits effectifs du proprietaire du fichier, et non seulement avec les droits de l'utilisateur qui le lance.
-
-Exemple :
-
-```text
--rwsr-xr-x 1 root root ... /usr/bin/passwd
-```
-
-Le `s` a la place du `x` cote proprietaire indique que le SUID est active.
-Si le proprietaire est `flag03`, le programme peut potentiellement s'executer avec les droits de `flag03`.
-C'est pour cela que les binaires SUID sont tres importants en privilege escalation.
-
-Formes importantes de `-perm` :
-
-```bash
-find / -perm 4000
-```
-
-Match exact : les permissions doivent etre exactement `4000`. C'est rarement ce qu'on veut.
-
-```bash
-find / -perm -4000
-```
-
-Tous les bits de `4000` doivent etre presents. C'est la forme habituelle pour trouver les fichiers SUID.
-
-```bash
-find / -perm /4000
-```
-
-Au moins un des bits de `4000` doit etre present. Pour un seul bit comme SUID, c'est proche, mais `/` est surtout utile quand tu testes plusieurs bits.
-
-Bits speciaux utiles :
-
-```text
-4000 = SUID, execution avec l'UID effectif du proprietaire
-2000 = SGID, execution avec le GID effectif du groupe ou heritage de groupe sur les dossiers
-1000 = sticky bit, courant sur /tmp, limite la suppression dans les dossiers partages
-```
-
-## Comprendre `-writable`
-
-`find / -writable` cherche les fichiers ou dossiers dans lesquels l'utilisateur courant peut ecrire.
-Ce n'est pas exactement pareil que `-perm`, car `-writable` tient compte de plus de regles d'acces, comme les ACL.
-
-Exemples utiles :
-
-```bash
-find / -writable -type d 2>/dev/null
-```
-
-Dossiers ou tu peux probablement creer des fichiers.
-
-```bash
-find / -writable -type f 2>/dev/null
-```
-
-Fichiers que tu peux probablement modifier.
-
-```bash
-find / -perm -o+w 2>/dev/null
-```
-
-Fichiers ou dossiers modifiables par `other`, donc par tout le monde.
-
-Pourquoi les chemins writable sont importants :
-
-- Tu peux parfois creer un fichier lu ensuite par un script privilegie.
-- Tu peux parfois modifier un script utilise par un compte plus privilegie.
-- Tu peux parfois exploiter un fichier temporaire previsible.
-- Tu peux parfois detourner une commande si un script privilegie utilise mal `PATH`.
-
-## Apres avoir trouve un fichier
-
 ```bash
 ls -la /path/to/file
 file /path/to/file
@@ -464,20 +385,3 @@ Bonne formulation :
 ```text
 Je suis au levelXX. Voici mes commandes et outputs. Donne-moi seulement un indice niveau 1.
 ```
-
-## Sources fiables
-
-- Linux `find(1)` manual sur man7.org : https://man7.org/linux/man-pages/man1/find.1.html
-- Linux `chmod(1)` manual sur man7.org : https://man7.org/linux/man-pages/man1/chmod.1.html
-- Linux `access(2)` manual sur man7.org : https://man7.org/linux/man-pages/man2/access.2.html
-- OWASP Web Security Testing Guide : https://owasp.org/www-project-web-security-testing-guide/
-- PortSwigger Web Security Academy : https://portswigger.net/web-security
-- GTFOBins : https://gtfobins.github.io/
-
-Notes issues des sources :
-
-- `find(1)` documente `-perm`, `-user`, `-readable`, `-writable`, et indique que `-perm -mode` signifie que tous les bits de `mode` doivent etre presents.
-- `chmod(1)` documente les permissions numeriques, dont le premier chiffre octal pour SUID, SGID et sticky bit.
-- `access(2)` explique les checks de permissions utilises par des tests comme `-readable`, `-writable` et `-executable`.
-- OWASP WSTG et PortSwigger sont des references fiables pour apprendre la methodologie de test web.
-- GTFOBins est utile pour comprendre comment des executables Unix legitimes peuvent etre abuses dans des systemes mal configures, notamment avec SUID, sudo, capabilities ou restricted shells.
