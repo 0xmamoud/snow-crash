@@ -1,0 +1,113 @@
+From the level02 account, the goal was to find the password for the flag02 account.
+
+The home directory contained a packet capture file:
+
+level02.pcap
+
+I identified the file type with:
+
+file level02.pcap
+
+Output:
+
+level02.pcap: tcpdump capture file (little-endian) - version 2.4 (Ethernet, capture length 16777216)
+
+This means the file is a network packet capture. I first inspected it with tcpdump:
+
+tcpdump -r level02.pcap
+
+The capture showed a TCP connection between:
+
+59.233.235.218:39247
+59.233.235.223:12121
+
+To display readable payload data, I used:
+
+tcpdump -A -r level02.pcap
+
+This revealed a cleartext login session containing:
+
+wwwbugs login:
+Password:
+
+For easier analysis, I copied the pcap to my host machine and opened it with Wireshark.
+In Wireshark, I used:
+
+Follow TCP Stream
+
+The reconstructed stream showed the password input as:
+
+ft_wandr...NDRel.L0L
+
+The dots were not literal dots. They were non-printable delete/backspace characters.
+To confirm the exact bytes, I switched the Wireshark TCP stream display to Hex Dump.
+
+The password bytes after "Password:" were:
+
+66 74 5f 77 61 6e 64 72 7f 7f 7f 4e 44 52 65 6c 7f 4c 30 4c 0d
+
+Decoded step by step:
+
+66 = f
+74 = t
+5f = _
+77 = w
+61 = a
+6e = n
+64 = d
+72 = r
+
+This first gives:
+
+ft_wandr
+
+Then:
+
+7f 7f 7f
+
+Each 7f is a delete/backspace character, so it removes the previous three characters:
+
+ft_wandr -> ft_wa
+
+Then the next bytes are:
+
+4e = N
+44 = D
+52 = R
+65 = e
+6c = l
+
+This gives:
+
+ft_waNDRel
+
+Then another delete/backspace appears:
+
+7f
+
+It removes the last character:
+
+ft_waNDRel -> ft_waNDRe
+
+Finally:
+
+4c = L
+30 = 0
+4c = L
+
+Final reconstructed password:
+
+ft_waNDReL0L
+
+I used this password to log into the flag02 account:
+
+su flag02
+
+Then I ran:
+
+getflag
+
+Token obtained to access the next level:
+
+kooda2puivaav1idi4f57q8iq
+
