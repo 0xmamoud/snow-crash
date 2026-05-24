@@ -1,0 +1,118 @@
+From the level09 account, the goal was to recover the password for flag09 and then execute getflag.
+
+The home directory contains two interesting files:
+
+level09
+token
+
+I checked the permissions and file types:
+
+ls -la
+file level09
+file token
+
+Output:
+
+-rwsr-sr-x 1 flag09 level09 7640 Mar  5  2016 level09
+----r--r-- 1 flag09 level09   26 Mar  5  2016 token
+
+level09: setuid setgid ELF 32-bit LSB executable, Intel 80386, dynamically linked, not stripped
+token: data
+
+The level09 binary is SUID/SGID and owned by flag09. The token file is readable, but it contains binary-looking data instead of a clear password.
+
+I inspected the binary with strings:
+
+strings level09
+
+Interesting strings found:
+
+ptrace
+You should not reverse this
+LD_PRELOAD
+/etc/ld.so.preload
+/proc/self/maps
+You need to provied only one arg.
+
+The ptrace and LD_PRELOAD strings show that the program has anti-debugging and anti-injection checks. When trying ltrace, the program detects tracing and exits:
+
+ltrace ./level09 token
+
+Output:
+
+ptrace(0, 0, 1, 0, ...) = -1
+puts("You should not reverse this")
+
+So instead of tracing it directly, I tested its behavior with controlled arguments.
+
+At first, I thought the program read the content of the file passed as argument. However, tests showed that it transforms the argument string itself, not the file content.
+
+Examples:
+
+./level09 token
+
+Output:
+
+tpmhr
+
+This is the string "token" transformed character by character:
+
+t + 0 = t
+o + 1 = p
+k + 2 = m
+e + 3 = h
+n + 4 = r
+
+So:
+
+token -> tpmhr
+
+Another test confirms the rule:
+
+./level09 abc
+
+Output:
+
+ace
+
+Because:
+
+a + 0 = a
+b + 1 = c
+c + 2 = e
+
+The transformation is:
+
+output[i] = input[i] + i
+
+The file token contains the password encoded with that rule. To decode it, I needed to apply the inverse transformation:
+
+clear[i] = encoded[i] - i
+
+I decoded the token file with Python:
+
+python -c 's=open("token").read().strip(); print("".join(chr(ord(s[i])-i) for i in range(len(s))))'
+
+Output:
+
+f3iji1ju5yuevaus41q1afiuq
+
+This was the password for the flag09 account:
+
+su flag09
+
+Password:
+
+f3iji1ju5yuevaus41q1afiuq
+
+Then I executed getflag:
+
+getflag
+
+Output:
+
+Check flag.Here is your token : s5cAJpM8ev6XHw998pRWG728z
+
+Token obtained to access the next level:
+
+s5cAJpM8ev6XHw998pRWG728z
