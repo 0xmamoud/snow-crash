@@ -290,6 +290,40 @@ ltrace ./binary
 strace ./binary
 ```
 
+#### Difference entre strings, ltrace et strace
+
+- `strings` : affiche les sequences de caracteres lisibles dans un fichier binaire. C'est rapide et utile pour trouver des indices (mots de passe, messages d'erreur, noms de fonctions), mais ce ne sont que des hypotheses. `strings` ne montre pas ce que le programme fait reellement.
+- `ltrace` : trace les appels aux fonctions des bibliotheques partagees (libc). Il intercepte des fonctions comme `printf()`, `strstr()`, `strcmp()`, `malloc()`, et montre les arguments et les valeurs de retour. C'est la preuve du comportement du programme.
+- `strace` : trace les appels systeme (syscalls), c'est-a-dire les demandes directes au noyau Linux. Il montre `open()`, `read()`, `write()`, `execve()`, etc. C'est utile pour comprendre les interactions avec le systeme de fichiers, les permissions et les erreurs.
+
+Exemple concret :
+
+```bash
+# Indice : on voit "token", "strstr" et un message d'erreur
+strings ./level08
+
+# Preuve : on voit l'appel reel a strstr avec ses arguments
+ltrace ./level08 ./token
+# Output :
+# strstr("./token", "token") = "token"
+# printf("You may not access '%s'\n", "./token") = 35
+# exit(1 <unfinished ...>)
+
+# Confirmation au niveau du noyau : on voit l'ecriture sur stdout
+strace ./level08 ./token
+# Output :
+# write(1, "You may not access './token'\n", 29) = 29
+# exit_group(1) = ?
+```
+
+Regle pratique :
+
+```text
+strings = hypotheses (indices)
+ltrace = preuve du comportement logique (fonctions C)
+strace = preuve des interactions systeme (appels au noyau)
+```
+
 ### Crypto basique
 
 Chercher :

